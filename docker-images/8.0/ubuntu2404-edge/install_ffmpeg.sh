@@ -5,12 +5,17 @@
 #       which is useful for debugging
 set -e
 strip_libs=false
+system_libs_as_packages=false
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --strip)
       strip_libs=true
+      shift 1
+      ;;
+    --system-libs-as-packages)
+      system_libs_as_packages=true
       shift 1
       ;;
     *)
@@ -52,11 +57,21 @@ install_ffmpeg() {
         CUDA_ARCH="${ARCH}-linux"
     fi
 
-    if ldd ${PREFIX}/bin/ffmpeg | grep ${GNU_ARCH} | cut -d ' ' -f 3 | grep -q . ; then
-        ldd ${PREFIX}/bin/ffmpeg | grep ${GNU_ARCH} | cut -d ' ' -f 3 | xargs -i cp -p {} /usr/local/lib/
-    fi
-    if [[ -d /usr/local/cuda/targets/${CUDA_ARCH}/lib/ ]]; then
-        cp -p /usr/local/cuda/targets/${CUDA_ARCH}/lib/libnpp* /usr/local/lib
+    if $system_libs_as_packages; then
+        # Record owning packages instead of copying system libs, so the runtime
+        # stage can apt-install them and scanners see them in the dpkg database.
+        ldd ${PREFIX}/bin/ffmpeg | awk '$3 ~ /^\// && $3 !~ /^\/opt\/ffmpeg/ {print $3}' | while read -r lib; do
+            real=$(readlink -f "$lib")
+            dpkg -S "$real" 2>/dev/null || dpkg -S "${real#/usr}"
+        done | cut -d: -f1 | sort -u > /tmp/workdir/runtime-packages.txt
+        cat /tmp/workdir/runtime-packages.txt
+    else
+        if ldd ${PREFIX}/bin/ffmpeg | grep ${GNU_ARCH} | cut -d ' ' -f 3 | grep -q . ; then
+            ldd ${PREFIX}/bin/ffmpeg | grep ${GNU_ARCH} | cut -d ' ' -f 3 | xargs -i cp -p {} /usr/local/lib/
+        fi
+        if [[ -d /usr/local/cuda/targets/${CUDA_ARCH}/lib/ ]]; then
+            cp -p /usr/local/cuda/targets/${CUDA_ARCH}/lib/libnpp* /usr/local/lib
+        fi
     fi
 
     # Check if ffmpeg library is linked to opt/ffmpeg and copy it to /usr/local/lib

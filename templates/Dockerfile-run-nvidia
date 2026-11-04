@@ -26,4 +26,4 @@ RUN /tmp/workdir/build_source.sh
 
 ## when  debugging you can pass in || true to the end of the command
 ## to keep the build going even if one of the steps fails
-RUN /tmp/workdir/install_ffmpeg.sh
+RUN /tmp/workdir/install_ffmpeg.sh --system-libs-as-packages
