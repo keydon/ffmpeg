@@ -220,6 +220,7 @@ ENV	    DEBIAN_FRONTEND=noninteractive
 WORKDIR     /tmp/workdir
 
 RUN     apt-get -yqq update && \
+        apt-get -yq upgrade && \
         apt-get install -yq --no-install-recommends ca-certificates libgomp1 libxcb-shape0 fontconfig $(cat /tmp/workdir/runtime-packages.txt) && \
         apt-get autoremove -y && \
         apt-get clean -y && \
